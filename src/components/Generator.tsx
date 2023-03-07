@@ -1,14 +1,17 @@
 import type { ChatMessage } from "@/types";
-import { createSignal, Index, Show } from "solid-js";
+import { Component, createSignal, Index, Show } from "solid-js";
 import IconClear from "./icons/Clear";
 import MessageItem from "./MessageItem";
 import SystemRoleSettings from "./SystemRoleSettings";
 import _ from "lodash";
 import { generateSignature } from "@/utils/auth";
+import { $apiKey } from "@/stores/api-key";
 
 const scrollToBottom = _.throttle(
   function () {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    });
   },
   100,
   {
@@ -17,7 +20,7 @@ const scrollToBottom = _.throttle(
   }
 );
 
-export default () => {
+const Content: Component = () => {
   let inputRef: HTMLTextAreaElement;
   const [currentSystemRoleSettings, setCurrentSystemRoleSettings] =
     createSignal("");
@@ -41,7 +44,7 @@ export default () => {
         content: inputValue,
       },
     ]);
-    scrollToBottom()
+    scrollToBottom();
     requestWithLatestMessage();
   };
 
@@ -61,6 +64,9 @@ export default () => {
       const timestamp = Date.now();
       const response = await fetch("/api/generate", {
         method: "POST",
+        headers: {
+          "x-api-key": $apiKey.value(),
+        },
         body: JSON.stringify({
           messages: requestMessageList,
           time: timestamp,
@@ -159,7 +165,7 @@ export default () => {
   };
 
   return (
-    <div my-6>
+    <>
       <SystemRoleSettings
         canEdit={() => messageList().length === 0}
         systemRoleEditing={systemRoleEditing}
@@ -183,7 +189,8 @@ export default () => {
       {currentAssistantMessage() && (
         <MessageItem role="assistant" message={currentAssistantMessage} />
       )}
-      <div class="pb-4 mt-4 z-1 sticky bottom-0 bg-#171921">
+      <div class="h-4"></div>
+      <div class="pb-4 z-1 sticky bottom-0 bg-#171921">
         <Show
           when={!loading()}
           fallback={() => (
@@ -263,6 +270,16 @@ export default () => {
           </div>
         </Show>
       </div>
-    </div>
+    </>
   );
 };
+
+const Generator: Component = () => {
+  return (
+    <Show when={!!$apiKey.value()}>
+      <Content></Content>
+    </Show>
+  );
+};
+
+export default Generator;

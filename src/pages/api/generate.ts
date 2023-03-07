@@ -5,10 +5,13 @@ import { verifySignature } from '@/utils/auth'
 import { fetch, ProxyAgent } from 'undici'
 // #vercel-end
 
-const apiKey = import.meta.env.OPENAI_API_KEY
 const https_proxy = import.meta.env.HTTPS_PROXY
 
 export const post: APIRoute = async (context) => {
+  const apiKey = context.request.headers.get('x-api-key');
+  if (!apiKey) {
+    return new Response('No api key')
+  }
   const body = await context.request.json()
   const { sign, time, messages } = body
   if (!messages) {
