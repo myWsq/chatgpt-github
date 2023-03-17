@@ -4,8 +4,8 @@ import IconClear from "./icons/Clear";
 import MessageItem from "./MessageItem";
 import SystemRoleSettings from "./SystemRoleSettings";
 import _ from "lodash";
-import { generateSignature } from "@/utils/auth";
 import { $apiKey } from "@/stores/api-key";
+import { generatePayload, parseOpenAIStream } from "@/utils/openAI";
 
 const scrollToBottom = _.throttle(
   function () {
@@ -21,6 +21,16 @@ const scrollToBottom = _.throttle(
 );
 
 const Content: Component = () => {
+  const endpoint = import.meta.env.PUBLIC_OPENAI_ENDPOINT;
+
+  if (!endpoint) {
+    return (
+      <div class="text-red">
+        Environment variable `PUBLIC_OPENAI_ENDPOINT` is not provided
+      </div>
+    );
+  }
+
   let inputRef: HTMLTextAreaElement;
   const [currentSystemRoleSettings, setCurrentSystemRoleSettings] =
     createSignal("");
@@ -61,27 +71,16 @@ const Content: Component = () => {
           content: currentSystemRoleSettings(),
         });
       }
-      const timestamp = Date.now();
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "x-api-key": $apiKey.value(),
-        },
-        body: JSON.stringify({
-          messages: requestMessageList,
-          time: timestamp,
-          sign: await generateSignature({
-            t: timestamp,
-            m:
-              requestMessageList?.[requestMessageList.length - 1]?.content ||
-              "",
-          }),
-        }),
+      const payload = generatePayload($apiKey.value(), requestMessageList);
+      const response = await fetch(`${endpoint}/v1/chat/completions`, {
+        ...payload,
         signal: controller.signal,
+      }).then((response) => {
+        if (!response.ok) {
+          return response;
+        }
+        return new Response(parseOpenAIStream(response));
       });
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
       const data = response.body;
       if (!data) {
         throw new Error("No data");

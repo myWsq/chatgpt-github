@@ -1,6 +1,29 @@
 import { createParser, ParsedEvent, ReconnectInterval } from 'eventsource-parser'
 import type { ChatMessage } from '@/types'
 
+function streamAsyncIterator(stream: ReadableStream) {
+  // Get a lock on the stream:
+  const reader = stream.getReader();
+
+  return {
+    next() {
+      // Stream reads already resolve with {done, value}, so
+      // we can just call read:
+      return reader.read();
+    },
+    return() {
+      // Release the lock if the iterator terminates.
+      reader.releaseLock();
+      return {};
+    },
+    // for-await calls this on whatever it's passed, so
+    // iterators tend to return themselves.
+    [Symbol.asyncIterator]() {
+      return this;
+    }
+  };
+}
+
 export const generatePayload = (apiKey: string, messages: ChatMessage[]): RequestInit => ({
   headers: {
     'Content-Type': 'application/json',
@@ -49,7 +72,7 @@ export const parseOpenAIStream = (rawResponse: Response) => {
       }
 
       const parser = createParser(streamParser)
-      for await (const chunk of rawResponse.body as any) {
+      for await (const chunk of streamAsyncIterator(rawResponse.body)) {
         parser.feed(decoder.decode(chunk))
       }
     },
