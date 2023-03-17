@@ -1,4 +1,4 @@
-name: Github Pages
+name: Github Page
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main # Set a branch name to trigger deployment
 
 jobs:
-  cache-and-install:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
